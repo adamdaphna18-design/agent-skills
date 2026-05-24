@@ -30,7 +30,8 @@ escape_glob() {
   printf '%s' "$s"
 }
 
-# Extract filter_file from the hook script (line 59 "filter_file()" to line 142 closing brace)
+# Extract functions from the hook script
+eval "$(sed -n '/^write_block()/,/^}/p' hooks/simplify-ignore.sh)"
 eval "$(sed -n '/^filter_file()/,/^}/p' hooks/simplify-ignore.sh)"
 
 assert_eq() {

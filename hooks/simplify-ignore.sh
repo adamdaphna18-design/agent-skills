@@ -53,6 +53,20 @@ escape_glob() {
   printf '%s' "$s"
 }
 
+write_block() {
+  local buf="$1" reason="$2" prefix="$3" suffix="$4" fid="$5" dest="$6"
+  local h; h=$(block_hash "$buf")
+  printf '%s' "$buf" > "$CACHE/${fid}.block.${h}"
+  [ -n "$reason" ] && printf '%s' "$reason" > "$CACHE/${fid}.reason.${h}"
+  printf '%s' "$prefix" > "$CACHE/${fid}.prefix.${h}"
+  printf '%s' "$suffix" > "$CACHE/${fid}.suffix.${h}"
+  if [ -n "$reason" ]; then
+    printf '%s\n' "${prefix}BLOCK_${h}: ${reason}${suffix}" >> "$dest"
+  else
+    printf '%s\n' "${prefix}BLOCK_${h}${suffix}" >> "$dest"
+  fi
+}
+
 # ── filter_file: replace simplify-ignore blocks with BLOCK_<hash> placeholders ─
 # Reads $1 (source), writes filtered version to $2 (dest), saves blocks to cache.
 # Returns 0 if blocks were found, 1 if none.
@@ -80,17 +94,8 @@ filter_file() {
           in_block=0
           # Write single-line block immediately and skip to next line
           # to avoid the end-marker check below firing again
-          local h; h=$(block_hash "$buf")
           count=$((count + 1))
-          printf '%s' "$buf" > "$CACHE/${fid}.block.${h}"
-          [ -n "$reason" ] && printf '%s' "$reason" > "$CACHE/${fid}.reason.${h}"
-          printf '%s' "$prefix" > "$CACHE/${fid}.prefix.${h}"
-          printf '%s' "$suffix" > "$CACHE/${fid}.suffix.${h}"
-          if [ -n "$reason" ]; then
-            printf '%s\n' "${prefix}BLOCK_${h}: ${reason}${suffix}" >> "$dest"
-          else
-            printf '%s\n' "${prefix}BLOCK_${h}${suffix}" >> "$dest"
-          fi
+          write_block "$buf" "$reason" "$prefix" "$suffix" "$fid" "$dest"
           buf=""; reason=""; prefix=""; suffix=""
           continue
           ;; *)
@@ -107,17 +112,8 @@ ${line}"
     # Check for end marker
     case "$line" in *simplify-ignore-end*)
       if [ $in_block -eq 1 ]; then
-        local h; h=$(block_hash "$buf")
         count=$((count + 1))
-        printf '%s' "$buf" > "$CACHE/${fid}.block.${h}"
-        [ -n "$reason" ] && printf '%s' "$reason" > "$CACHE/${fid}.reason.${h}"
-        printf '%s' "$prefix" > "$CACHE/${fid}.prefix.${h}"
-        printf '%s' "$suffix" > "$CACHE/${fid}.suffix.${h}"
-        if [ -n "$reason" ]; then
-          printf '%s\n' "${prefix}BLOCK_${h}: ${reason}${suffix}" >> "$dest"
-        else
-          printf '%s\n' "${prefix}BLOCK_${h}${suffix}" >> "$dest"
-        fi
+        write_block "$buf" "$reason" "$prefix" "$suffix" "$fid" "$dest"
         in_block=0; buf=""; reason=""; prefix=""; suffix=""
         continue
       fi
